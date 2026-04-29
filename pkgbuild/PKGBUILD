@@ -1,19 +1,19 @@
 # Maintainer: Tales A. Mendonça <talesam@gmail.com>
 
-pkgname=pkgbuild-template
-pkgdesc="Package template for Communitybig"
-# Uncomment and edit the following lines as needed
-#depends=('')
-#makedepends=('')
-#optdepends=('')
-#conflicts=('')
-#provides=('')
-#replaces=('')
+pkgname=gnome-shell-extension-kiwi-kemma
+_gitname=kiwi-kemma
+_uuid=kiwi@kemma
+pkgdesc="Kiwi is not Apple — GNOME Shell extension that brings macOS-inspired features to GNOME"
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
+epoch=1
 arch=('any')
-license=('MIT')
-url="https://github.com/big-comm/${pkgname}"
+license=('GPL-3.0-or-later')
+url="https://github.com/kem-a/kiwi-kemma"
+depends=('gnome-shell>=48')
+makedepends=('glib2' 'gettext')
+optdepends=('imagemagick: overview wallpaper blur feature')
+provides=("$pkgname")
 source=("git+${url}.git")
 md5sums=('SKIP')
 
@@ -24,49 +24,45 @@ elif [ -e "pkgbuild.install" ]; then
     install=pkgbuild.install
 fi
 
-prepare() {
-    cd "${srcdir}/${pkgname}"
-    # Add any preparation steps here, if needed
-    # For example: patch -p1 < "${srcdir}/patch-file.patch"
-}
-
-build() {
-    cd "${srcdir}/${pkgname}"
-    # Add build steps here, if needed
-    # For example: make
-}
-
-check() {
-    cd "${srcdir}/${pkgname}"
-    # Add check/test steps here, if needed
-    # For example: make check
-}
-
 package() {
-    cd "${srcdir}/${pkgname}"
+    cd "${srcdir}/${_gitname}"
 
-    # Determine the correct source directory
-    if [ -d "${pkgname}" ]; then
-        srcdir="${srcdir}/${pkgname}/${pkgname}"
-    else
-        srcdir="${srcdir}/${pkgname}"
-    fi
+    local destdir="${pkgdir}/usr/share/gnome-shell/extensions/${_uuid}"
+    install -d "${destdir}"
 
-    # Install files
-    local dirs=("usr" "etc" "opt")
-    for dir in "${dirs[@]}"; do
-        if [ -d "${srcdir}/${dir}" ]; then
-            cp -a "${srcdir}/${dir}" "${pkgdir}/"
+    # Install extension core files
+    install -Dm644 extension.js     "${destdir}/extension.js"
+    install -Dm644 metadata.json    "${destdir}/metadata.json"
+    install -Dm644 prefs.js         "${destdir}/prefs.js"
+    install -Dm644 prefs.css        "${destdir}/prefs.css"
+    install -Dm644 stylesheet.css   "${destdir}/stylesheet.css"
+
+    # Copy bundled directories
+    for dir in schemas icons apps; do
+        if [ -d "${dir}" ]; then
+            cp -a "${dir}" "${destdir}/"
         fi
     done
 
-    # Install license file if present
-    if [ -f "LICENSE" ]; then
-        install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    # Compile GSettings schemas
+    if [ -d "${destdir}/schemas" ]; then
+        glib-compile-schemas "${destdir}/schemas/"
     fi
 
-    # Install documentation if present
-    if [ -f "README.md" ]; then
+    # Compile translations (.po -> .mo) into the extension's locale dir
+    if [ -d po ]; then
+        for po in po/*.po; do
+            [ -f "${po}" ] || continue
+            local lang
+            lang="$(basename "${po}" .po)"
+            install -d "${destdir}/locale/${lang}/LC_MESSAGES"
+            msgfmt "${po}" -o "${destdir}/locale/${lang}/LC_MESSAGES/${_uuid}.mo"
+        done
+    fi
+
+    # Install license and documentation
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    if [ -f README.md ]; then
         install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
     fi
 }
